@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "474247250950",
+    "project_id": "kirana-survey",
+    "storage_bucket": "kirana-survey.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:474247250950:android:ed32a7b2ec7f358bd1ef87",
+        "android_client_info": {
+          "package_name": "com.lohiya.kirana_survey"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArpdsda9u45qvHnXytUCG3EL3NHcBbbmo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
