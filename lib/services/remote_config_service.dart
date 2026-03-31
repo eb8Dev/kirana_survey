@@ -14,8 +14,8 @@ class RemoteConfigService {
       RemoteConfigSettings(
         fetchTimeout: const Duration(minutes: 1),
         minimumFetchInterval: kDebugMode
-            ? const Duration(minutes: 5)
-            : const Duration(hours: 1),
+            ? const Duration(minutes: 1)
+            : const Duration(seconds: 0),
       ),
     );
 
@@ -25,6 +25,10 @@ class RemoteConfigService {
     });
 
     await _remoteConfig.fetchAndActivate();
+    final activated = await _remoteConfig.fetchAndActivate();
+    debugPrint('Fetch activated: $activated');
+    debugPrint('Scoring Enabled: ${_remoteConfig.getBool(scoringEnabledKey)}');
+    debugPrint('Source: ${_remoteConfig.getValue(scoringEnabledKey).source}');
   }
 
   bool get scoringEnabled => _remoteConfig.getBool(scoringEnabledKey);

@@ -830,4 +830,15 @@ const List<SurveyQuestion> surveyQuestions = [
     helperText:
         "Less stockout? Less dead stock? Better margin? Better turns? | Signal: Pilot KPIs",
   ),
+  SurveyQuestion(
+    id: "K-S39",
+    stageNumber: 7,
+    stageLabel: "7. Digital readiness, trust & AI adoption",
+    mode: QuestionMode.survey,
+    section: "Willingness to Pay & Value Perception",
+    prompt:
+        "Based on the potential business impact and efficiency gains discussed, what monthly subscription or service fee would the outlet be willing to invest in such an AI-powered solution?",
+    type: QuestionType.slider,
+    helperText: "Monthly fee in \u20b9 (INR). 100 \u20b9 increments.",
+  ),
 ];

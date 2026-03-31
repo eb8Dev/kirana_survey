@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:kirana_survey/data/survey_definition.dart';
 import 'package:kirana_survey/models/survey_models.dart';
 import 'package:kirana_survey/services/auth_service.dart';
@@ -53,6 +54,7 @@ class SurveyController extends ChangeNotifier {
   String? _storeName;
   String? _storeLocation;
   CapturedSurveyLocation? _capturedLocation;
+  QueryDocumentSnapshot<Map<String, dynamic>>? _latestDraft;
   String? _errorMessage;
   DateTime? _lastSavedAt;
   Timer? _autosaveTimer;
@@ -68,6 +70,7 @@ class SurveyController extends ChangeNotifier {
   String? get storeName => _storeName;
   String? get storeLocation => _storeLocation;
   CapturedSurveyLocation? get capturedLocation => _capturedLocation;
+  QueryDocumentSnapshot<Map<String, dynamic>>? get latestDraft => _latestDraft;
   bool get isReady => _lifecycle == SurveyLifecycle.ready;
   bool get isSubmitted => _lifecycle == SurveyLifecycle.submitted;
   bool get needsSurveyorName =>
@@ -79,6 +82,18 @@ class SurveyController extends ChangeNotifier {
   bool get isBusy =>
       _lifecycle == SurveyLifecycle.loading ||
       _lifecycle == SurveyLifecycle.submitting;
+
+  bool get hasDraft => _latestDraft != null;
+
+  Stream<bool>? get syncStatusStream {
+    if (_surveyorDocumentId == null || _sessionId == null) {
+      return null;
+    }
+    return _repository.watchSyncStatus(
+      surveyorDocumentId: _surveyorDocumentId!,
+      sessionId: _sessionId!,
+    );
+  }
 
   List<SurveyQuestion> get questions => surveyQuestions;
   SurveyQuestion get currentQuestion => questions[_currentQuestionIndex];
@@ -122,9 +137,12 @@ class SurveyController extends ChangeNotifier {
       final user = await _authService.ensureAnonymousSession();
       _userId = user.uid;
       _surveyorName = await _surveyorProfileService.loadSurveyorName();
-      _surveyorDocumentId = _surveyorName == null
-          ? null
-          : SurveyRepository.buildSurveyorDocumentId(_surveyorName!);
+      if (_surveyorName != null) {
+        _surveyorDocumentId = SurveyRepository.buildSurveyorDocumentId(
+          _surveyorName!,
+        );
+        _latestDraft = await _repository.getLatestDraft(_surveyorDocumentId!);
+      }
 
       _lifecycle = _surveyorName == null
           ? SurveyLifecycle.awaitingSurveyorName
@@ -147,6 +165,7 @@ class SurveyController extends ChangeNotifier {
       await _surveyorProfileService.saveSurveyorName(trimmed);
       _surveyorName = trimmed;
       _surveyorDocumentId = SurveyRepository.buildSurveyorDocumentId(trimmed);
+      _latestDraft = await _repository.getLatestDraft(_surveyorDocumentId!);
       _lifecycle = SurveyLifecycle.awaitingSurveyStart;
       notifyListeners();
       return null;
@@ -198,6 +217,7 @@ class SurveyController extends ChangeNotifier {
     _storeName = null;
     _storeLocation = null;
     _capturedLocation = null;
+    _latestDraft = null;
     _answers.clear();
     _assessments.clear();
     _currentQuestionIndex = 0;
@@ -214,7 +234,66 @@ class SurveyController extends ChangeNotifier {
     await _surveyorProfileService.clearSurveyorName();
     _surveyorName = null;
     _surveyorDocumentId = null;
+    _latestDraft = null;
     await startAnotherSurvey();
+  }
+
+  Future<void> resumeSession(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final data = doc.data();
+    _sessionId = data['sessionId'] as String?;
+    _surveyorDocumentId = data['surveyorDocumentId'] as String?;
+    _surveyorName = data['surveyorName'] as String?;
+    _storeName = data['storeName'] as String?;
+    _storeLocation = data['storeLocation'] as String?;
+    _currentQuestionIndex = data['currentQuestionIndex'] as int? ?? 0;
+
+    final locationData = data['locationCapture'] as Map<String, dynamic>?;
+    if (locationData != null) {
+      _capturedLocation = CapturedSurveyLocation(
+        label: locationData['label'] as String? ?? 'Unknown',
+        latitude: (locationData['latitude'] as num?)?.toDouble() ?? 0.0,
+        longitude: (locationData['longitude'] as num?)?.toDouble() ?? 0.0,
+        accuracyMeters:
+            (locationData['accuracyMeters'] as num?)?.toDouble() ?? 0.0,
+        capturedAt: locationData['capturedAt'] != null
+            ? DateTime.parse(locationData['capturedAt'] as String)
+            : DateTime.now(),
+      );
+    }
+
+    _answers.clear();
+    _assessments.clear();
+
+    final responses = data['responses'] as Map<String, dynamic>? ?? {};
+    responses.forEach((key, value) {
+      final responseData = value as Map<String, dynamic>;
+      final answer = responseData['answer'];
+      if (answer != null) {
+        if (answer is num &&
+            questions.any(
+              (q) => q.id == key && q.type == QuestionType.slider,
+            )) {
+          _answers[key] = answer.toDouble();
+        } else {
+          _answers[key] = answer;
+        }
+      }
+
+      final assessmentData = responseData['assessment'] as Map<String, dynamic>?;
+      if (assessmentData != null) {
+        _assessments[key] = QuestionAssessment(
+          customerRating: assessmentData['customerRating'] as int?,
+          businessImpact: assessmentData['businessImpact'] as int?,
+          aiFit: assessmentData['aiFit'] as int?,
+        );
+      }
+    });
+
+    _latestDraft = null;
+    _lifecycle = SurveyLifecycle.ready;
+    notifyListeners();
   }
 
   Future<void> goPrevious() async {
@@ -263,6 +342,7 @@ class SurveyController extends ChangeNotifier {
       );
       _lifecycle = SurveyLifecycle.submitted;
       _errorMessage = null;
+      HapticFeedback.mediumImpact();
     } catch (error) {
       _lifecycle = SurveyLifecycle.error;
       _errorMessage = _friendlyErrorMessage(error);
@@ -322,6 +402,11 @@ class SurveyController extends ChangeNotifier {
       case QuestionType.rankTop3:
         if (value is! List || value.length != 3) {
           return 'Please select exactly three priorities in rank order.';
+        }
+        break;
+      case QuestionType.slider:
+        if (value is! double) {
+          return 'Please select a value on the slider.';
         }
         break;
     }

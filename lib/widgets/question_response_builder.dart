@@ -58,7 +58,98 @@ class QuestionResponseBuilder extends StatelessWidget {
           initialValue: value is String ? value as String : '',
           onChanged: (text) => onChanged(text),
         );
+      case QuestionType.slider:
+        return _SliderSelector(
+          value: value is double ? value as double : 0.0,
+          onChanged: onChanged,
+        );
     }
+  }
+}
+
+class _SliderSelector extends StatelessWidget {
+  const _SliderSelector({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final double value;
+  final ValueChanged<Object?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          decoration: BoxDecoration(
+            color: BrandColors.surfaceTint,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: BrandColors.border),
+          ),
+          child: Column(
+            children: [
+              Text(
+                '\u20b9 ${value.round()}',
+                style: theme.textTheme.displaySmall?.copyWith(
+                  color: BrandColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value == 0
+                    ? 'Not willing to pay'
+                    : value == 2000
+                        ? '\u20b9 2,000 or more'
+                        : 'Monthly subscription',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: BrandColors.muted,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: BrandColors.primary,
+                  inactiveTrackColor: BrandColors.border,
+                  trackHeight: 8.0,
+                  thumbColor: BrandColors.secondary,
+                  overlayColor: BrandColors.secondary.withValues(alpha: 0.12),
+                  valueIndicatorColor: BrandColors.primary,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 14.0,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 28.0,
+                  ),
+                ),
+                child: Slider(
+                  value: value,
+                  min: 0,
+                  max: 2000,
+                  divisions: 20,
+                  label: '\u20b9 ${value.round()}',
+                  onChanged: (newValue) => onChanged(newValue),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('\u20b9 0'),
+                  Text('\u20b9 1,000'),
+                  Text('\u20b9 2,000'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

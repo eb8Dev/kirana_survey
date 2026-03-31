@@ -53,9 +53,27 @@ class DeviceLocationService {
       );
     }
 
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      position = await Geolocator.getLastKnownPosition();
+    }
+
+    if (position == null) {
+      return CapturedSurveyLocation(
+        label: 'Location not captured',
+        latitude: 0.0,
+        longitude: 0.0,
+        accuracyMeters: 0.0,
+        capturedAt: DateTime.now(),
+      );
+    }
 
     final label = await _resolveLabel(position);
     return CapturedSurveyLocation(

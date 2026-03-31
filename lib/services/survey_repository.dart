@@ -34,6 +34,32 @@ class SurveyRepository {
     return _surveyors.doc(surveyorDocumentId).collection('surveys').snapshots();
   }
 
+  Future<QueryDocumentSnapshot<Map<String, dynamic>>?> getLatestDraft(
+    String surveyorDocumentId,
+  ) async {
+    final snapshot = await _surveyors
+        .doc(surveyorDocumentId)
+        .collection('surveys')
+        .where('status', isEqualTo: 'draft')
+        .orderBy('updatedAt', descending: true)
+        .limit(1)
+        .get();
+
+    return snapshot.docs.isEmpty ? null : snapshot.docs.first;
+  }
+
+  Stream<bool> watchSyncStatus({
+    required String surveyorDocumentId,
+    required String sessionId,
+  }) {
+    return _surveyors
+        .doc(surveyorDocumentId)
+        .collection('surveys')
+        .doc(sessionId)
+        .snapshots()
+        .map((snapshot) => snapshot.metadata.hasPendingWrites);
+  }
+
   Future<SurveySessionRef> createSession({
     required String userId,
     required String surveyorName,

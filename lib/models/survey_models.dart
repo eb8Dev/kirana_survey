@@ -1,4 +1,4 @@
-enum QuestionType { singleSelect, multiSelect, scale, rankTop3, openText }
+enum QuestionType { singleSelect, multiSelect, scale, rankTop3, openText, slider }
 
 enum QuestionMode { survey, interviewProbe }
 

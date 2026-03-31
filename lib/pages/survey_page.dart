@@ -14,6 +14,7 @@ import 'package:kirana_survey/services/survey_repository.dart';
 import 'package:kirana_survey/services/surveyor_profile_service.dart';
 import 'package:kirana_survey/widgets/question_assessment_card.dart';
 import 'package:kirana_survey/widgets/question_response_builder.dart';
+import 'package:kirana_survey/widgets/stage_completion_overlay.dart';
 import 'package:kirana_survey/widgets/survey_gate_widgets.dart';
 
 class SurveyPage extends StatefulWidget {
@@ -320,20 +321,53 @@ class _SurveyScaffold extends StatelessWidget {
                         flex: 2,
                         child: ElevatedButton.icon(
                           onPressed: () async {
+                            final currentStage = controller.currentStage.number;
                             final message = isLast
                                 ? await controller.submit()
                                 : await controller.goNext();
+
                             if (message != null && context.mounted) {
                               ScaffoldMessenger.of(
                                 context,
                               ).showSnackBar(SnackBar(content: Text(message)));
+                              return;
                             }
-                            if (!isLast && scrollController.hasClients) {
-                              await scrollController.animateTo(
-                                0,
-                                duration: const Duration(milliseconds: 260),
-                                curve: Curves.easeOutCubic,
-                              );
+
+                            if (!isLast) {
+                              final nextStage = controller.currentStage.number;
+                              if (nextStage > currentStage && context.mounted) {
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (context, animation, secondary) =>
+                                            StageCompletionOverlay(
+                                              completedStageNumber:
+                                                  currentStage,
+                                              nextStageNumber: nextStage,
+                                              nextStageTitle:
+                                                  controller.currentStage.title,
+                                              onAnimationComplete:
+                                                  () => Navigator.of(
+                                                    context,
+                                                  ).pop(),
+                                            ),
+                                    transitionsBuilder:
+                                        (context, animation, secondary, child) =>
+                                            FadeTransition(
+                                              opacity: animation,
+                                              child: child,
+                                            ),
+                                  ),
+                                );
+                              }
+
+                              if (scrollController.hasClients) {
+                                await scrollController.animateTo(
+                                  0,
+                                  duration: const Duration(milliseconds: 260),
+                                  curve: Curves.easeOutCubic,
+                                );
+                              }
                             }
                           },
                           icon: Icon(
@@ -481,8 +515,52 @@ class _TopHeader extends StatelessWidget {
                   .toList(),
             ),
           ),
+          if (controller.syncStatusStream != null) ...[
+            const SizedBox(height: 16),
+            _SyncStatusIndicator(stream: controller.syncStatusStream!),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _SyncStatusIndicator extends StatelessWidget {
+  const _SyncStatusIndicator({
+    required this.stream,
+  });
+
+  final Stream<bool> stream;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return StreamBuilder<bool>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final state = snapshot.connectionState;
+        final hasPending = snapshot.data ?? true;
+        final icon = state == ConnectionState.waiting || hasPending
+            ? Icons.cloud_upload_rounded
+            : Icons.cloud_done_rounded;
+        final label = state == ConnectionState.waiting
+            ? 'Checking sync…'
+            : hasPending
+                ? 'Syncing…'
+                : 'Synced';
+        final color = hasPending ? BrandColors.secondary : BrandColors.primary;
+
+        return Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(color: color),
+            ),
+          ],
+        );
+      },
     );
   }
 }

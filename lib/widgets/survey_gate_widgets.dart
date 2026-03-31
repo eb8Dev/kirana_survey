@@ -117,6 +117,7 @@ class _SurveyStartGateState extends State<SurveyStartGate> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final surveyorDocumentId = widget.controller.surveyorDocumentId;
+    final draft = widget.controller.latestDraft;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -158,6 +159,47 @@ class _SurveyStartGateState extends State<SurveyStartGate> {
                         hintText: 'Enter kirana store name',
                       ),
                     ),
+                    if (draft != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: BrandColors.surfaceTint,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: BrandColors.border),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Resume last draft',
+                                style: theme.textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'You have an unsent survey draft for ${draft.data()['storeName'] ?? 'the last outlet'}.',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Last saved ${DateFormat.yMMMd().add_jm().format(
+                                  (draft.data()['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                                )}',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: _resumeDraft,
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('Resume draft'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     Container(
                       width: double.infinity,
@@ -222,6 +264,15 @@ class _SurveyStartGateState extends State<SurveyStartGate> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
+
+  Future<void> _resumeDraft() async {
+    final draft = widget.controller.latestDraft;
+    if (draft == null) {
+      return;
+    }
+
+    await widget.controller.resumeSession(draft);
   }
 
   @override
