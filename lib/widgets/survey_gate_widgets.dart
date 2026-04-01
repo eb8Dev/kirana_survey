@@ -16,11 +16,13 @@ class SurveyorNameGate extends StatefulWidget {
 
 class _SurveyorNameGateState extends State<SurveyorNameGate> {
   late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _phoneController = TextEditingController();
   }
 
   @override
@@ -44,17 +46,27 @@ class _SurveyorNameGateState extends State<SurveyorNameGate> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Enter the surveyor name once on this device. Their surveys and stats will be grouped together in Firestore.',
+                    'Enter the surveyor name and phone number once on this device. Their surveys and stats will be grouped together in Firestore.',
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 20),
                   TextField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.done,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'Surveyor name',
                       hintText: 'Enter full name',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      labelText: 'Surveyor phone',
+                      hintText: '+91 91234 56789',
                     ),
                     onSubmitted: (_) => _saveName(),
                   ),
@@ -75,6 +87,7 @@ class _SurveyorNameGateState extends State<SurveyorNameGate> {
   Future<void> _saveName() async {
     final message = await widget.controller.saveSurveyorName(
       _nameController.text,
+      _phoneController.text,
     );
     if (message != null && mounted) {
       ScaffoldMessenger.of(
@@ -86,6 +99,7 @@ class _SurveyorNameGateState extends State<SurveyorNameGate> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 }
@@ -106,11 +120,13 @@ class SurveyStartGate extends StatefulWidget {
 
 class _SurveyStartGateState extends State<SurveyStartGate> {
   late final TextEditingController _storeController;
+  late final TextEditingController _storePhoneController;
 
   @override
   void initState() {
     super.initState();
     _storeController = TextEditingController();
+    _storePhoneController = TextEditingController();
   }
 
   @override
@@ -157,6 +173,15 @@ class _SurveyStartGateState extends State<SurveyStartGate> {
                       decoration: const InputDecoration(
                         labelText: 'Store name',
                         hintText: 'Enter kirana store name',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _storePhoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Store phone',
+                        hintText: '+91 91234 56789',
                       ),
                     ),
                     if (draft != null) ...[
@@ -258,6 +283,7 @@ class _SurveyStartGateState extends State<SurveyStartGate> {
   Future<void> _startSurvey() async {
     final message = await widget.controller.beginSurvey(
       storeName: _storeController.text,
+      storePhoneNumber: _storePhoneController.text,
     );
     if (message != null && mounted) {
       ScaffoldMessenger.of(
@@ -278,6 +304,7 @@ class _SurveyStartGateState extends State<SurveyStartGate> {
   @override
   void dispose() {
     _storeController.dispose();
+    _storePhoneController.dispose();
     super.dispose();
   }
 }

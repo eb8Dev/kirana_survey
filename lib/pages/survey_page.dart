@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:kirana_survey/controllers/survey_controller.dart';
 import 'package:kirana_survey/core/brand_theme.dart';
 import 'package:kirana_survey/data/survey_definition.dart';
@@ -346,17 +347,19 @@ class _SurveyScaffold extends StatelessWidget {
                                               nextStageNumber: nextStage,
                                               nextStageTitle:
                                                   controller.currentStage.title,
-                                              onAnimationComplete:
-                                                  () => Navigator.of(
-                                                    context,
-                                                  ).pop(),
+                                              onAnimationComplete: () =>
+                                                  Navigator.of(context).pop(),
                                             ),
                                     transitionsBuilder:
-                                        (context, animation, secondary, child) =>
-                                            FadeTransition(
-                                              opacity: animation,
-                                              child: child,
-                                            ),
+                                        (
+                                          context,
+                                          animation,
+                                          secondary,
+                                          child,
+                                        ) => FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        ),
                                   ),
                                 );
                               }
@@ -518,6 +521,8 @@ class _TopHeader extends StatelessWidget {
           if (controller.syncStatusStream != null) ...[
             const SizedBox(height: 16),
             _SyncStatusIndicator(stream: controller.syncStatusStream!),
+            const SizedBox(height: 16),
+            const _SupportContactsRow(),
           ],
         ],
       ),
@@ -525,10 +530,102 @@ class _TopHeader extends StatelessWidget {
   }
 }
 
+class _SupportContactsRow extends StatelessWidget {
+  const _SupportContactsRow();
+
+  static const _contacts = [
+    _SupportContact(name: 'Bhanu Prakash', phone: '+91 95154 09973'),
+    _SupportContact(name: 'Vijay Bhaskar', phone: '+91 97005 54579'),
+    _SupportContact(name: 'Gurumurty', phone: '+91 98666 11733'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: _contacts.asMap().entries.map((entry) {
+        final index = entry.key;
+        final contact = entry.value;
+        final initials = _getInitials(contact.name);
+
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () async {
+                final uri = Uri(scheme: 'tel', path: contact.phone);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Unable to call ${contact.name}')),
+                  );
+                }
+              },
+              child: Container(
+                height: 56, // 🔥 strict compact height
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: BrandColors.surfaceTint,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: BrandColors.border),
+                ),
+                child: Row(
+                  children: [
+                    /// Avatar (smaller)
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: BrandColors.primary.withOpacity(0.1),
+                      child: Text(
+                        initials,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: BrandColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    /// Name (tight)
+                    Expanded(
+                      child: Text(
+                        contact.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                    /// Call icon inline (no extra row)
+                    const Icon(
+                      Icons.call,
+                      size: 16,
+                      color: BrandColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _getInitials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length == 1) return parts.first[0];
+    return parts.first[0] + parts.last[0];
+  }
+}
+
 class _SyncStatusIndicator extends StatelessWidget {
-  const _SyncStatusIndicator({
-    required this.stream,
-  });
+  const _SyncStatusIndicator({required this.stream});
 
   final Stream<bool> stream;
 
@@ -546,8 +643,8 @@ class _SyncStatusIndicator extends StatelessWidget {
         final label = state == ConnectionState.waiting
             ? 'Checking sync…'
             : hasPending
-                ? 'Syncing…'
-                : 'Synced';
+            ? 'Syncing…'
+            : 'Synced';
         final color = hasPending ? BrandColors.secondary : BrandColors.primary;
 
         return Row(
@@ -563,6 +660,13 @@ class _SyncStatusIndicator extends StatelessWidget {
       },
     );
   }
+}
+
+class _SupportContact {
+  const _SupportContact({required this.name, required this.phone});
+
+  final String name;
+  final String phone;
 }
 
 class _StageBanner extends StatelessWidget {

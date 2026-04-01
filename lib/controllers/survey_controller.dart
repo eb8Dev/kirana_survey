@@ -51,7 +51,9 @@ class SurveyController extends ChangeNotifier {
   String? _surveyorDocumentId;
   String? _userId;
   String? _surveyorName;
+  String? _surveyorPhoneNumber;
   String? _storeName;
+  String? _storePhoneNumber;
   String? _storeLocation;
   CapturedSurveyLocation? _capturedLocation;
   QueryDocumentSnapshot<Map<String, dynamic>>? _latestDraft;
@@ -66,8 +68,10 @@ class SurveyController extends ChangeNotifier {
   DateTime? get lastSavedAt => _lastSavedAt;
   String? get sessionId => _sessionId;
   String? get surveyorName => _surveyorName;
+  String? get surveyorPhoneNumber => _surveyorPhoneNumber;
   String? get surveyorDocumentId => _surveyorDocumentId;
   String? get storeName => _storeName;
+  String? get storePhoneNumber => _storePhoneNumber;
   String? get storeLocation => _storeLocation;
   CapturedSurveyLocation? get capturedLocation => _capturedLocation;
   QueryDocumentSnapshot<Map<String, dynamic>>? get latestDraft => _latestDraft;
@@ -137,6 +141,7 @@ class SurveyController extends ChangeNotifier {
       final user = await _authService.ensureAnonymousSession();
       _userId = user.uid;
       _surveyorName = await _surveyorProfileService.loadSurveyorName();
+      _surveyorPhoneNumber = await _surveyorProfileService.loadSurveyorPhoneNumber();
       if (_surveyorName != null) {
         _surveyorDocumentId = SurveyRepository.buildSurveyorDocumentId(
           _surveyorName!,
@@ -155,15 +160,20 @@ class SurveyController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> saveSurveyorName(String name) async {
+  Future<String?> saveSurveyorName(String name, String phoneNumber) async {
     final trimmed = name.trim();
+    final trimmedPhone = phoneNumber.trim();
     if (trimmed.isEmpty) {
       return 'Please enter the surveyor name to continue.';
     }
+    if (trimmedPhone.isEmpty) {
+      return 'Please enter the surveyor phone number to continue.';
+    }
 
     try {
-      await _surveyorProfileService.saveSurveyorName(trimmed);
+      await _surveyorProfileService.saveSurveyorProfile(trimmed, trimmedPhone);
       _surveyorName = trimmed;
+      _surveyorPhoneNumber = trimmedPhone;
       _surveyorDocumentId = SurveyRepository.buildSurveyorDocumentId(trimmed);
       _latestDraft = await _repository.getLatestDraft(_surveyorDocumentId!);
       _lifecycle = SurveyLifecycle.awaitingSurveyStart;
@@ -177,11 +187,18 @@ class SurveyController extends ChangeNotifier {
     }
   }
 
-  Future<String?> beginSurvey({required String storeName}) async {
+  Future<String?> beginSurvey({
+    required String storeName,
+    required String storePhoneNumber,
+  }) async {
     final trimmedStoreName = storeName.trim();
+    final trimmedStorePhone = storePhoneNumber.trim();
 
     if (trimmedStoreName.isEmpty) {
       return 'Please enter the store name.';
+    }
+    if (trimmedStorePhone.isEmpty) {
+      return 'Please enter the store phone number.';
     }
 
     if (_surveyorName == null || _userId == null) {
@@ -200,6 +217,7 @@ class SurveyController extends ChangeNotifier {
       final capturedLocation = await _deviceLocationService
           .captureCurrentLocation();
       _storeName = trimmedStoreName;
+      _storePhoneNumber = trimmedStorePhone;
       _capturedLocation = capturedLocation;
       _storeLocation = capturedLocation.label;
       await _createFreshSession();
@@ -231,8 +249,9 @@ class SurveyController extends ChangeNotifier {
   }
 
   Future<void> clearSurveyorProfile() async {
-    await _surveyorProfileService.clearSurveyorName();
+    await _surveyorProfileService.clearSurveyorProfile();
     _surveyorName = null;
+    _surveyorPhoneNumber = null;
     _surveyorDocumentId = null;
     _latestDraft = null;
     await startAnotherSurvey();
@@ -443,7 +462,9 @@ class SurveyController extends ChangeNotifier {
     final ref = await _repository.createSession(
       userId: userId,
       surveyorName: surveyorName,
+      surveyorPhone: _surveyorPhoneNumber ?? '',
       storeName: storeName,
+      storePhone: _storePhoneNumber ?? '',
       storeLocation: storeLocation,
       locationCapture: capturedLocation.toMap(),
       totalQuestions: questions.length,
@@ -527,8 +548,10 @@ class SurveyController extends ChangeNotifier {
       'sessionId': _sessionId,
       'surveyorDocumentId': _surveyorDocumentId,
       'surveyorName': _surveyorName,
+      'surveyorPhone': _surveyorPhoneNumber,
       'userId': _userId,
       'storeName': _storeName,
+      'storePhone': _storePhoneNumber,
       'storeLocation': _storeLocation,
       'locationCapture': _capturedLocation?.toMap(),
       'currentQuestionIndex': _currentQuestionIndex,
