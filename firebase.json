@@ -1,1 +1,37 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"kirana-survey","appId":"1:474247250950:android:ed32a7b2ec7f358bd1ef87","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"kirana-survey","configurations":{"android":"1:474247250950:android:ed32a7b2ec7f358bd1ef87","ios":"1:474247250950:ios:ecc0b08af26d4671d1ef87","web":"1:474247250950:web:65351c6229efcf7ad1ef87"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "kirana-survey",
+          "appId": "1:474247250950:android:ed32a7b2ec7f358bd1ef87",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "kirana-survey",
+          "configurations": {
+            "android": "1:474247250950:android:ed32a7b2ec7f358bd1ef87",
+            "ios": "1:474247250950:ios:ecc0b08af26d4671d1ef87",
+            "web": "1:474247250950:web:65351c6229efcf7ad1ef87"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

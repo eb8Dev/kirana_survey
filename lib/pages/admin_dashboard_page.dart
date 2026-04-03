@@ -1,8 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:kirana_survey/core/brand_theme.dart';
+import 'package:kirana_survey/core/download_utils.dart';
+import 'package:kirana_survey/data/survey_definition.dart';
+import 'package:kirana_survey/models/survey_models.dart';
 import 'package:kirana_survey/services/auth_service.dart';
 import 'package:kirana_survey/services/survey_repository.dart';
 
@@ -93,6 +97,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           _searchTerm = value.trim().toLowerCase();
                         });
                       },
+                      onExport: () => _exportSubmittedCsv(filteredDocs),
                     ),
                     Expanded(
                       child: Padding(
@@ -234,16 +239,196 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     _searchController.dispose();
     super.dispose();
   }
+
+  Future<void> _exportSubmittedCsv(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) async {
+    if (docs.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No submitted surveys to export.')),
+        );
+      }
+      return;
+    }
+
+    final csv = _buildCsv(docs);
+    final fileName = 'survey_export_${DateTime.now().toIso8601String().replaceAll(':', '-')}.csv';
+    final downloaded = await downloadCsv(fileName, csv);
+
+    if (!downloaded) {
+      await Clipboard.setData(ClipboardData(text: csv));
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            downloaded
+                ? 'Download started: $fileName'
+                : 'CSV copied to clipboard as fallback. Paste into a file to save it.',
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  String _buildCsv(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final rows = <List<String>>[];
+    rows.add([
+      'Seq',
+      'Stage',
+      'Question ID',
+      'Mode',
+      'Section / Theme',
+      'Question',
+      'Response Type',
+      'Answer Options / Probe Angle',
+      'Customer Input / Observation',
+      'Surveyor Name',
+      'Surveyor Phone',
+      'Store Name',
+      'Store Phone',
+      'Store Location',
+      'Session ID',
+      'Submitted At',
+      'Average Weighted Score',
+      'Response Count',
+      'Completion Ratio',
+      'Scoring Enabled',
+    ]);
+
+    final questionDefinition = {
+      for (final question in surveyQuestions) question.id: question,
+    };
+
+    var seq = 0;
+    for (final doc in docs) {
+      final data = doc.data();
+      final surveyorName = '${data['surveyorName'] ?? ''}';
+      final surveyorPhone = '${data['surveyorPhone'] ?? ''}';
+      final storeName = '${data['storeName'] ?? ''}';
+      final storePhone = '${data['storePhone'] ?? ''}';
+      final storeLocation = '${data['storeLocation'] ?? ''}';
+      final sessionId = doc.id;
+      final submittedAt = _formatTimestamp(data['submittedAt']);
+      final averageScore = _formatField(data['averageWeightedScore']);
+      final responseCount = _formatField(data['responseCount']);
+      final completionRatio = _formatField(data['completionRatio']);
+      final scoringEnabled = '${data['scoringEnabled'] == true}';
+
+      final responses = (data['responses'] as Map<String, dynamic>? ?? {})
+          .entries
+          .toList()
+        ..sort((a, b) {
+          final aStage = ((a.value as Map<String, dynamic>)['stageNumber'] as num?) ?? 0;
+          final bStage = ((b.value as Map<String, dynamic>)['stageNumber'] as num?) ?? 0;
+          return aStage.compareTo(bStage);
+        });
+
+      for (final entry in responses) {
+        seq += 1;
+        final questionId = entry.key;
+        final responseData = (entry.value as Map<String, dynamic>? ?? {});
+        final question = questionDefinition[questionId];
+        final mode = question?.mode == QuestionMode.survey ? 'Survey' : 'Interview Probe';
+        final stage = question?.stageLabel ?? '${responseData['stageLabel'] ?? ''}';
+        final section = question?.section ?? '${responseData['section'] ?? ''}';
+        final prompt = question?.prompt ?? '${responseData['prompt'] ?? ''}';
+        final responseType = _responseTypeLabel(question?.type);
+        final optionAngle = question?.options.join('; ') ?? '';
+        final answer = _formatAnswer(responseData['answer']);
+
+        rows.add([
+          '$seq',
+          stage,
+          questionId,
+          mode,
+          section,
+          prompt,
+          responseType,
+          optionAngle,
+          answer,
+          surveyorName,
+          surveyorPhone,
+          storeName,
+          storePhone,
+          storeLocation,
+          sessionId,
+          submittedAt,
+          averageScore,
+          responseCount,
+          completionRatio,
+          scoringEnabled,
+        ]);
+      }
+    }
+
+    return rows.map((row) => row.map(_csvEscape).join(',')).join('\r\n');
+  }
+
+  String _csvEscape(String value) {
+    final escaped = value.replaceAll('"', '""');
+    return '"$escaped"';
+  }
+
+  String _formatAnswer(Object? answer) {
+    if (answer == null) {
+      return '';
+    }
+    if (answer is List) {
+      return answer.join('; ');
+    }
+    return '$answer';
+  }
+
+  String _formatField(Object? field) {
+    if (field == null) {
+      return '';
+    }
+    return '$field';
+  }
+
+  String _formatTimestamp(Object? timestamp) {
+    if (timestamp is Timestamp) {
+      return DateFormat('yyyy-MM-dd HH:mm:ss').format(timestamp.toDate());
+    }
+    return '$timestamp';
+  }
+
+  String _responseTypeLabel(QuestionType? type) {
+    switch (type) {
+      case QuestionType.singleSelect:
+        return 'Single select';
+      case QuestionType.multiSelect:
+        return 'Multi select';
+      case QuestionType.scale:
+        return '5-point scale';
+      case QuestionType.rankTop3:
+        return 'Rank top 3';
+      case QuestionType.openText:
+        return 'Open-ended';
+      case QuestionType.slider:
+        return 'Slider';
+      default:
+        return 'Unknown';
+    }
+  }
 }
 
 class _AdminTopBar extends StatelessWidget {
   const _AdminTopBar({
     required this.searchController,
     required this.onSearchChanged,
+    required this.onExport,
   });
 
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -315,6 +500,18 @@ class _AdminTopBar extends StatelessWidget {
                           'Search by surveyor, store, location, or session id',
                     ),
                   ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pushNamed('/admin/analytics');
+                  },
+                  icon: const Icon(Icons.insights_rounded),
+                  label: const Text('Analytics'),
+                ),
+                FilledButton.icon(
+                  onPressed: onExport,
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('Export CSV'),
                 ),
               ],
             ),

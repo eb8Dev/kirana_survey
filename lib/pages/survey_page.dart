@@ -543,72 +543,69 @@ class _SupportContactsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
-      children: _contacts.asMap().entries.map((entry) {
-        final index = entry.key;
-        final contact = entry.value;
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      children: _contacts.map((contact) {
         final initials = _getInitials(contact.name);
 
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () async {
-                final uri = Uri(scheme: 'tel', path: contact.phone);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri);
-                } else if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Unable to call ${contact.name}')),
-                  );
-                }
-              },
-              child: Container(
-                height: 56, // 🔥 strict compact height
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: BrandColors.surfaceTint,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: BrandColors.border),
-                ),
-                child: Row(
-                  children: [
-                    /// Avatar (smaller)
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: BrandColors.primary.withOpacity(0.1),
-                      child: Text(
-                        initials,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: BrandColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+        return InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+            final uri = Uri(scheme: 'tel', path: contact.phone);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri);
+            } else if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Unable to call ${contact.name}')),
+              );
+            }
+          },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 120,
+              maxWidth: 200,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(
+                color: BrandColors.surfaceTint,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: BrandColors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor:
+                        BrandColors.primary.withValues(alpha: 0.1),
+                    child: Text(
+                      initials,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: BrandColors.primary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-
-                    const SizedBox(width: 6),
-
-                    /// Name (tight)
-                    Expanded(
-                      child: Text(
-                        contact.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      contact.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-
-                    /// Call icon inline (no extra row)
-                    const Icon(
-                      Icons.call,
-                      size: 16,
-                      color: BrandColors.primary,
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.call,
+                    size: 16,
+                    color: BrandColors.primary,
+                  ),
+                ],
               ),
             ),
           ),
